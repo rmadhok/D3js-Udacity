@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://dimplejs.org/dist/dimple.v2.0.0.min.js"></script>
+  <style>
+      h2 {
+        color: black;
+        text-align: center;
+      }
+
+      .axis {
+        font-family: arial;
+        font-size: 0.6em;
+      }
+
+      path {
+        fill: none;
+        stroke: black;
+        stroke-width: 2px;
+      }
+
+      .tick {
+        fill: none;
+        stroke: black;
+      }
+
+      circle {
+        opacity: 0.4;
+        stroke: none;
+      }
+
+      .line_plot {
+        fill: none;
+        stroke: #4eb0bb;
+        stroke-width: 1px;
+      }
+    </style>
+  <script type="text/javascript">
+  
+  function draw(data) {
+      
+      /*
+        D3.js setup code
+      */
+
+    "use strict"; /*use restricted subset of JS within the function*/
+      var margin = 75,
+          width = 1400 - margin,
+          height = 600 - margin;
+      var radius = 3;
+      var color = "blue";
+      var multiplier = 1.5;
+
+          /*add title*/
+      d3.select('body')
+      .append('h2')
+      .text("World Cup Attendance");
+
+          /*find body tag, append new svg el, add w and h attr, and add chart group tag*/
+      var svg = d3.select("body") 
+          .append("svg")
+          .attr("width", width + margin)
+          .attr("height", height + margin)
+          .append('g')
+          .attr('class','chart');
+
+      /*
+        Dimple.js Chart construction code
+      */
+      // Create Chart
+
+      d3.select('svg')
+        .selectAll('circle')
+        .data(data)
+        .enter()
+        .append('circle')
+
+      //construct axes
+      // find min and max of x axis (date)
+      var time_extent = d3.extent(data, function(d) {
+        return d['date'];
+      });
+      // find min/max of y axis (count)
+      var count_extent = d3.extent(data, function(d) {
+        return d['attendance'];
+      });
+      // create x-axis scale mapping dates --> pixels
+      // map from min/max of time to left to rightmost chart
+      var time_scale = d3.time.scale() 
+        .range([margin, width])
+        .domain(time_extent);
+
+      // create y-axis scale mapping attendance --> pixels
+      // use scale linear since its an integer
+      var count_scale = d3.scale.linear() 
+        .range([height, margin])
+        .domain(count_extent);
+
+      // create d3 axis object from time_scale for x axis
+      var time_axis = d3.svg.axis()
+        .scale(time_scale)
+        .ticks(d3.time.years, 2)
+
+      // create d3 axis object from cout_scale for y axis
+      var count_axis = d3.svg.axis()
+        .scale(count_scale)
+        .orient('left')
+
+      // Append svg to page cooresponding to d3 x-axis
+      //call passes axis through
+      d3.select('svg')
+        .append('g')  // like a div tag. fence around other svg obj
+        .attr('class', 'x axis')
+        .attr('transform', 'translate(0,' + height + ')')
+        .call(time_axis);
+
+      // append svg to page corresponding to the d3 y-axis
+      // translate a few pixels, and touching top of class
+      d3.select('svg')
+        .append('g')  // like a div tag. fence around other svg obj
+        .attr('class', 'y axis')
+        .attr('transform', 'translate(' + margin + ',0)')
+        .call(count_axis)
+
+      
+      //find all (836) circles, position each
+      // circle according to whats in bound data
+      d3.selectAll("circle")
+        .attr("cx", function(d) {
+          //pass date to time scale, convert to pixel, and return it
+          return time_scale(d["date"]);
+        })
+        .attr("cy", function(d) {
+          return count_scale(d["attendance"]);
+        })
+        // radius is dynamic - based on data
+        // if home is one of the teams, return larger radius
+        .attr("r", function(d) {
+          if (d['home'] == d['team1'] || d['home'] == d['team2']) {
+            return radius * multiplier;
+          } else {
+            return radius;
+          }
+          })
+        .attr("fill", function(d) {
+          if (d['home'] == d['team1'] || d['home'] == d['team2']) {
+            return 'red';
+          } else {
+            return 'blue';
+          }
+          });
+
+      var legend = svg.append('g')
+        .attr('class', 'legend')
+        .attr('transform', 'translate(' + (width - 100) + ',' + 20 + ')')
+        .selectAll('g')
+        .data(["Home Team", "Others"])
+        .enter().append('g');
+
+      legend.append("circle")
+          .attr("cy", function(d, i) {
+              return i * 30;
+          })
+          .attr("r", function(d) {
+              if (d == "Home Team") {
+                    return radius * multiplier;
+              } else {
+                   return radius;
+              }
+          })
+           .attr("fill", function(d) {
+              if (d == "Home Team") {
+                   return 'red';
+               } else {
+                  return 'blue';
+              }
+          });
+
+       legend.append("text")
+          .attr("y", function(d, i) {
+             return i * 30 + 5;
+          })
+          .attr("x", radius * 5)
+          .text(function(d) {
+              return d;
+          });
+      };
+  </script>
+</head>
+<body>
+<script type="text/javascript">
+  /*
+    Use D3 (not dimple.js) to load the TSV file
+    and pass the contents of it to the draw function
+    */
+  //eg 27-05-1934 (16:00 h)
+  format = d3.time.format('%d-%m-%Y (%H:%M h)');
+
+  // reads each row, (i.e. date), passes to transform function
+  // transforms date string to js date object, and attendance to
+  // integer, and pass new object to draw callback
+  d3.tsv("world_cup_geo.tsv", function(d) {
+      d['date'] = format.parse(d['date']);
+      d['attendance'] = +d['attendance']; //+ unary operator to conv to int
+      return d;
+    }, draw); 
+  </script>
+</body>
+</html>
